@@ -6,12 +6,16 @@ using System.ComponentModel;
 using System.Data;
 using System.Runtime.CompilerServices;
 using System.Runtime.ConstrainedExecution;
+using System.Net.Http;
+using System.Net;
+using System.Net.Security;
 
 namespace NOAAParser
 {
     class Program
     {
-        static string selectedTable;
+        static String selectedTable;
+        static String[] existingTables = { "44018", "46050", "44065" };
         static private SqlConnection Connect()
         {
             String connectString = "Server=LAPTOP-DTUMN89D;Database=buoys;Trusted_Connection=True;";
@@ -49,7 +53,7 @@ namespace NOAAParser
             createCmd.ExecuteNonQuery();
             String uploadQuery = @"BULK
             INSERT dbo.Buoy_" + selectedTable + @" 
-            FROM 'C:\Users\memes\OneDrive\Desktop\" + selectedTable + @".csv'
+            FROM 'D:\Users\Shane\Documents\noaa\" + selectedTable + @".csv'
             WITH
             (
                 FIELDTERMINATOR = ',',
@@ -60,6 +64,14 @@ namespace NOAAParser
             uploadCSV.ExecuteNonQuery();
 
             conn.Close();
+        }
+
+        static private void DownloadTable()
+        {
+            WebClient client = new WebClient();
+            String remoteAddress = "https://www.ndbc.noaa.gov/data/realtime2/" + selectedTable + ".spec";
+            String localAddress = "D:\\Users\\Shane\\Documents\\noaa\\" + selectedTable + ".spec";
+            client.DownloadFile(remoteAddress, localAddress);
         }
         static private int GetInt()
         {
@@ -98,11 +110,29 @@ namespace NOAAParser
             return latest;
         }
 
+        static void InsertTable()
+        {
+            SqlConnection conn = Connect();
+            conn.Open();
+            String uploadQuery = @"BULK
+            INSERT dbo.Buoy_" + selectedTable + @" 
+            FROM 'D:\Users\Shane\Documents\noaa\" + selectedTable + @".csv'
+            WITH
+            (
+                FIELDTERMINATOR = ',',
+                ROWTERMINATOR = '0x0a',
+                FIRSTROW = 1
+            )";
+            SqlCommand uploadCSV = new SqlCommand(uploadQuery, conn);
+            uploadCSV.ExecuteNonQuery();
+            conn.Close();
+        }
+
         static private void NewTable()
         {
             Console.WriteLine("Please Enter Path to NOAA Data Table: ");
             //string pathToTable = Console.ReadLine();
-            string pathToTable = "C:\\Users\\memes\\OneDrive\\Desktop\\" + selectedTable + ".spec.txt";
+            string pathToTable = "D:\\Users\\Shane\\Documents\\noaa\\" + selectedTable + ".spec";
             Console.WriteLine("User Submitted " + pathToTable + " beginning parse...");
             ParseCSV(pathToTable, new DateTime(0), 0);
             CreateTable();
@@ -116,7 +146,7 @@ namespace NOAAParser
             string latestString = latest.ToString("yyyy-MM-dd HH:mm:ss");
             int currentEntry = latestIndex;
             using (FileStream stream = File.Open(path, FileMode.Open))
-            using (FileStream outputStream = File.Open("C:\\Users\\memes\\OneDrive\\Desktop\\" + selectedTable + ".csv", FileMode.OpenOrCreate))
+            using (FileStream outputStream = File.Open("D:\\Users\\Shane\\Documents\\noaa\\" + selectedTable + ".csv", FileMode.Create))
             using (StreamWriter writer = new StreamWriter(outputStream))
             using (StreamReader reader = new StreamReader(stream))
             {
@@ -224,15 +254,13 @@ namespace NOAAParser
                 Console.WriteLine(ex.Message);
                 return -1;
             }
-            string newData = "C:\\Users\\memes\\OneDrive\\Desktop\\" + selectedTable + ".spec.txt";
+            string newData = "D:\\Users\\Shane\\Documents\\noaa\\" + selectedTable + ".spec";
             ParseCSV(newData, latest, latestIndex);
             return 0;
         }
         static void Main(string[] args)
         {
             int selection = 0;
-            Console.WriteLine("Enter Buoy Number: ");
-            selectedTable = Console.ReadLine();
             Console.WriteLine("Select an option:");
             Console.WriteLine("1. Parse New Table");
             Console.WriteLine("2. Update Existing");
@@ -246,7 +274,15 @@ namespace NOAAParser
                     NewTable();
                     break;
                 case 2:
-                    UpdateTable();
+                    Console.WriteLine("Updating Existing Tables...");
+                    for (int i = 0; i < existingTables.Length; i++)
+                    {
+                        selectedTable = "";
+                        selectedTable = existingTables[i];
+                        DownloadTable();
+                        UpdateTable();
+                        InsertTable();
+                    }
                     break;
                 default:
                     break;
