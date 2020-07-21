@@ -11,11 +11,55 @@ namespace NOAAParser
 {
     class Program
     {
+        static string selectedTable;
         static private SqlConnection Connect()
         {
             String connectString = "Server=LAPTOP-DTUMN89D;Database=buoys;Trusted_Connection=True;";
             SqlConnection con = new SqlConnection(connectString);
             return con;
+        }
+
+        static private void CreateTable()
+        {
+            SqlConnection conn = Connect();
+            conn.Open();
+
+            String createQuery = @"CREATE TABLE dbo.Buoy_" + selectedTable + @"
+            (
+                IndexNum        INT    NOT NULL   PRIMARY KEY,
+                DateIndex datetime,
+                Year      [NVARCHAR](50)  NOT NULL,
+                Month  [NVARCHAR](50)  NOT NULL,
+                Day     [NVARCHAR](50)  NOT NULL,
+                Hour [NVARCHAR](50) NOT NULL,
+                Minute [NVARCHAR](50) NOT NULL,
+                WVHT [NVARCHAR](50) NOT NULL,
+                SwH [NVARCHAR](50) NOT NULL,
+                SwP [NVARCHAR](50) NOT NULL,
+                SwD [NVARCHAR](50) NOT NULL,
+                WWH [NVARCHAR](50) NOT NULL,
+                WWP [NVARCHAR](50) NOT NULL,
+                WWD [NVARCHAR](50) NOT NULL,
+                STEEPNESS [NVARCHAR](50) NOT NULL,
+                APD [NVARCHAR](50) NOT NULL,
+                MWD [NVARCHAR](50) NOT NULL
+
+            );";
+            SqlCommand createCmd = new SqlCommand(createQuery, conn);
+            createCmd.ExecuteNonQuery();
+            String uploadQuery = @"BULK
+            INSERT dbo.Buoy_" + selectedTable + @" 
+            FROM 'C:\Users\memes\OneDrive\Desktop\" + selectedTable + @".csv'
+            WITH
+            (
+                FIELDTERMINATOR = ',',
+                ROWTERMINATOR = '0x0a',
+                FIRSTROW = 1
+            )";
+            SqlCommand uploadCSV = new SqlCommand(uploadQuery, conn);
+            uploadCSV.ExecuteNonQuery();
+
+            conn.Close();
         }
         static private int GetInt()
         {
@@ -34,7 +78,7 @@ namespace NOAAParser
             int latest = 0;
             try
             {
-                String dateQuery = "SELECT IndexNum FROM dbo.Buoy_44065";
+                String dateQuery = "SELECT IndexNum FROM dbo.Buoy_" + selectedTable;
                 SqlCommand cmd = new SqlCommand(dateQuery, conn);
                 conn.Open();
                 SqlDataReader dReader = cmd.ExecuteReader();
@@ -58,16 +102,21 @@ namespace NOAAParser
         {
             Console.WriteLine("Please Enter Path to NOAA Data Table: ");
             //string pathToTable = Console.ReadLine();
-            string pathToTable = "C:\\Users\\memes\\OneDrive\\Desktop\\44065.spec.txt";
+            string pathToTable = "C:\\Users\\memes\\OneDrive\\Desktop\\" + selectedTable + ".spec.txt";
             Console.WriteLine("User Submitted " + pathToTable + " beginning parse...");
             ParseCSV(pathToTable, new DateTime(0), 0);
+            CreateTable();
         }
         static void ParseCSV(string path, DateTime latest, int latestIndex)
         {
+            bool newTable = false;
+            if (latestIndex == 0)
+                newTable = true;
+
             string latestString = latest.ToString("yyyy-MM-dd HH:mm:ss");
             int currentEntry = latestIndex;
             using (FileStream stream = File.Open(path, FileMode.Open))
-            using (FileStream outputStream = File.Open("C:\\Users\\memes\\OneDrive\\Desktop\\44065.csv", FileMode.OpenOrCreate))
+            using (FileStream outputStream = File.Open("C:\\Users\\memes\\OneDrive\\Desktop\\" + selectedTable + ".csv", FileMode.OpenOrCreate))
             using (StreamWriter writer = new StreamWriter(outputStream))
             using (StreamReader reader = new StreamReader(stream))
             {
@@ -156,7 +205,7 @@ namespace NOAAParser
             int latestIndex = 0;
             try
             {
-                String dateQuery = "SELECT IndexNum, DateIndex FROM dbo.Buoy_44065 ORDER BY IndexNum DESC";
+                String dateQuery = "SELECT IndexNum, DateIndex FROM dbo.Buoy_" + selectedTable + " ORDER BY IndexNum DESC";
                 SqlCommand cmd = new SqlCommand(dateQuery, conn);
                 conn.Open();
                 SqlDataReader dReader = cmd.ExecuteReader();
@@ -175,13 +224,15 @@ namespace NOAAParser
                 Console.WriteLine(ex.Message);
                 return -1;
             }
-            string newData = "C:\\Users\\memes\\OneDrive\\Desktop\\44065.spec.txt";
+            string newData = "C:\\Users\\memes\\OneDrive\\Desktop\\" + selectedTable + ".spec.txt";
             ParseCSV(newData, latest, latestIndex);
             return 0;
         }
         static void Main(string[] args)
         {
             int selection = 0;
+            Console.WriteLine("Enter Buoy Number: ");
+            selectedTable = Console.ReadLine();
             Console.WriteLine("Select an option:");
             Console.WriteLine("1. Parse New Table");
             Console.WriteLine("2. Update Existing");
