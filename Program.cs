@@ -9,13 +9,14 @@ using System.Runtime.ConstrainedExecution;
 using System.Net.Http;
 using System.Net;
 using System.Net.Security;
+using System.Linq;
 
 namespace NOAAParser
 {
     class Program
     {
         static String selectedTable;
-        static String[] existingTables = { "44018", "46050", "44065" };
+        static String[] existingTables = { "44018", "46050", "44065", "44017", "41117", "46219", "44009", "46028", "46219", "46014", "41025"   };
         static private SqlConnection Connect()
         {
             String connectString = "Server=LAPTOP-DTUMN89D;Database=buoys;Trusted_Connection=True;";
@@ -135,7 +136,6 @@ namespace NOAAParser
             string pathToTable = "D:\\Users\\Shane\\Documents\\noaa\\" + selectedTable + ".spec";
             Console.WriteLine("User Submitted " + pathToTable + " beginning parse...");
             ParseCSV(pathToTable, new DateTime(0), 0);
-            CreateTable();
         }
         static void ParseCSV(string path, DateTime latest, int latestIndex)
         {
@@ -271,7 +271,19 @@ namespace NOAAParser
             switch (selection)
             {
                 case 1:
-                    NewTable();
+                    Console.WriteLine("Enter Table ID Number: ");
+                    selectedTable = Console.ReadLine();
+                    if (existingTables.Contains(selectedTable))
+                    {
+                        Console.WriteLine("Table Already Exists. Exiting.");
+                    }
+                    else
+                    {
+                        DownloadTable();
+                        NewTable();
+                        CreateTable();
+                        break;
+                    }
                     break;
                 case 2:
                     Console.WriteLine("Updating Existing Tables...");
